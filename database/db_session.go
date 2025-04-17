@@ -34,6 +34,8 @@ type CookieToken struct {
 	Value    string
 	Path     string
 	HttpOnly bool
+	Secure   bool
+	SameSite string
 }
 
 func (d *Database) sessionsInit() {
@@ -212,7 +214,7 @@ func (d *Database) sessionsDelete(id int) error {
 	return err
 }
 
-func (d *Database) sessionsGetById(id int) (*Session, error) {
+func (d *Database) SessionsGetById(id int) (*Session, error) {
 	s := &Session{}
 	err := d.db.View(func(tx *buntdb.Tx) error {
 		found := false

