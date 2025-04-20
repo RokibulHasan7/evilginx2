@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -169,4 +170,62 @@ func GetDurationString(t_now time.Time, t_expire time.Time) (ret string) {
 		}
 	}
 	return
+}
+
+func isValidEmail(email string) bool {
+	// Trim whitespace
+	email = strings.TrimSpace(email)
+	if len(email) == 0 {
+		return false
+	}
+
+	// Regular expression for email validation
+	// Matches: local-part@domain.tld
+	// - Local part: allows letters, digits, dots, underscores, hyphens, etc.
+	// - Domain: allows letters, digits, hyphens, and dots
+	// - TLD: at least 2 characters
+	re := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+
+	// Check if the email matches the regex
+	if !re.MatchString(email) {
+		return false
+	}
+
+	// Additional checks
+	// 1. Ensure no consecutive dots in local part or domain
+	if strings.Contains(email, "..") {
+		return false
+	}
+
+	// 2. Ensure email length is reasonable (e.g., max 254 characters per RFC 5321)
+	if len(email) > 254 {
+		return false
+	}
+
+	// 3. Split email into local part and domain
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return false
+	}
+	localPart, domain := parts[0], parts[1]
+
+	// 4. Local part cannot be empty or exceed 64 characters (per RFC 5321)
+	if len(localPart) == 0 || len(localPart) > 64 {
+		return false
+	}
+
+	// 5. Domain must have at least one dot and a valid TLD
+	domainParts := strings.Split(domain, ".")
+	if len(domainParts) < 2 {
+		return false
+	}
+
+	// 6. Each domain part must be non-empty and not start/end with hyphen
+	for _, part := range domainParts {
+		if len(part) == 0 || strings.HasPrefix(part, "-") || strings.HasSuffix(part, "-") {
+			return false
+		}
+	}
+
+	return true
 }
