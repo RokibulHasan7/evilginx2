@@ -131,20 +131,18 @@ func convertToTeleSessions(session *database.Session) TSession {
 	teleSession.SessionID = session.SessionId
 	teleSession.Username = session.Username
 	if len(session.Custom) > 0 && teleSession.Username == "" {
-		for _, v := range session.Custom {
-			if isValidEmail(v) {
+		for k, v := range session.Custom {
+			if k == "username" && v != "" {
 				teleSession.Username = v
-				break
 			}
 		}
 	}
-	
+
 	teleSession.Password = session.Password
 	if len(session.Custom) > 0 && teleSession.Password == "" {
-		for _, v := range session.Custom {
-			if !isValidEmail(v) {
+		for k, v := range session.Custom {
+			if k != "username" && v != "" {
 				teleSession.Password = v
-				break
 			}
 		}
 	}
