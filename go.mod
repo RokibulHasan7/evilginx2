@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/caddyserver/certmagic v0.20.0
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
-	github.com/elazarl/goproxy v0.0.0-20220529153421-8ea89ba92021
+	github.com/elazarl/goproxy v1.7.3-0.20250305112401-088f758167d2
 	github.com/fatih/color v1.13.0
 	github.com/go-acme/lego/v3 v3.1.0
 	github.com/go-resty/resty/v2 v2.12.0

