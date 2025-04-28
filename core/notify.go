@@ -257,6 +257,8 @@ func formatSessionMessage(session TSession) string {
 				partner = "Adfs"
 			} else if strings.Contains(resp.FederationMetadataURL, "okta") {
 				partner = "Okta"
+			} else if strings.Contains(resp.FederationMetadataURL, "onelogin") {
+				partner = "OneLogin"
 			}
 		}
 	}
