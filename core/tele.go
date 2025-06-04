@@ -8,6 +8,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	net_url "net/url"
 	"os"
 	"strconv"
 
@@ -28,25 +29,35 @@ func sendTelegramNotification(chatID string, token string, message string, txtFi
 		return 0, fmt.Errorf("invalid chat ID format: %v", err)
 	}
 
-	file, err := os.Open(txtFilePath)
-	if err != nil {
-		return 0, fmt.Errorf("error opening TXT file: %v", err)
+	if txtFilePath != "" {
+		file, err := os.Open(txtFilePath)
+		if err != nil {
+			return 0, fmt.Errorf("error opening TXT file: %v", err)
+		}
+		defer file.Close()
+
+		doc := tgbotapi.NewDocument(chatIDInt, tgbotapi.FileReader{
+			Name:   txtFilePath,
+			Reader: file,
+		})
+		doc.Caption = message
+		msg, err := bot.Send(doc)
+		if err != nil {
+			return 0, fmt.Errorf("error sending TXT file: %v", err)
+		}
+
+		fmt.Println("Message with TXT file sent successfully")
+		return msg.MessageID, nil
+	} else {
+		newMsg := tgbotapi.NewMessage(chatIDInt, message)
+		msg, err := bot.Send(newMsg)
+		if err != nil {
+			return 0, fmt.Errorf("error sending TXT file: %v", err)
+		}
+
+		fmt.Println("Message with TXT file sent successfully")
+		return msg.MessageID, nil
 	}
-	defer file.Close()
-
-	doc := tgbotapi.NewDocument(chatIDInt, tgbotapi.FileReader{
-		Name:   txtFilePath,
-		Reader: file,
-	})
-	doc.Caption = message
-
-	msg, err := bot.Send(doc)
-	if err != nil {
-		return 0, fmt.Errorf("error sending TXT file: %v", err)
-	}
-
-	fmt.Println("Message with TXT file sent successfully")
-	return msg.MessageID, nil
 }
 
 func sendMessageWithtxt(bot *tgbotapi.BotAPI, chatID int64, message string, txtFilePath string) {
@@ -169,5 +180,28 @@ func editMessageFile(chatID string, token string, messageID int, txtFilePath str
 	}
 
 	fmt.Println("Message edited successfully with updated file.")
+	return nil
+}
+
+func editMessageCaption(chatID string, token string, messageID int, msg_body string) error {
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/editMessageText", token)
+
+	data := net_url.Values{}
+	data.Set("chat_id", chatID)
+	data.Set("message_id", fmt.Sprintf("%d", messageID))
+	data.Set("caption", "Note - Message has been updated .\n\n"+msg_body)
+
+	resp, err := http.PostForm(url, data)
+	if err != nil {
+		return fmt.Errorf("error sending caption update request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to edit caption: %s", string(body))
+	}
+
+	fmt.Println("Caption updated successfully.")
 	return nil
 }
